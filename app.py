@@ -29,20 +29,18 @@ class Book:
         self.sold += 1
 
 
-class SalesTracker:
+class Report:
     def __init__(self):
-        self.sales = []
+        self.all_sales = []
 
     def record_sale(self, book):
         if book.count >= 1:
             book.sell()
-            self.sales.append((book.title, book.price))
-        else:
-            raise ValueError("موجودی کافی نیست.")
+            self.all_sales.append((book.title, book.price))
 
     def total_sales(self):
-        total_books = len(self.sales)
-        total_income = sum(sale[1] for sale in self.sales)
+        total_books = len(self.all_sales)
+        total_income = sum(sale[1] for sale in self.all_sales)
         return total_books, total_income
 
 
@@ -54,99 +52,12 @@ class SalesTracker:
 
 class Gui:
 
-    def add_new(self, title, author, price, count):
-        book = Book(title=title, author=author, price=price, count=count)
-        self.all_books[book.id] = book
-        self.show_records()
-        messagebox.showinfo("توجه", "رکورد ذخیره شد")
-        self.title.set("")
-        self.author.set("")
-        self.price.set("")
-        self.count.set("")
-
-    def search_product(self, title, author):
-        self.table.delete(*self.table.get_children())
-        finded_records = []
-        if not title and not author:
-            finded_records = self.all_books.values()
-        else:
-            for item in self.all_books.values():
-                title = title if title else "_"
-                author = author if author else "_"
-                if title in item.title or author in item.author:
-                    finded_records.append(item)
-
-        for item in finded_records:
-            self.table.insert(
-                "",
-                "end",
-                values=(
-                    item.id,
-                    item.title,
-                    item.author,
-                    item.price,
-                    item.count,
-                ),
-            )
-
-    def delete_record(self):
-        if not self.table.selection():
-            messagebox.showwarning("توجه", "رکوردی برای حذف انتخاب نشده است")
-        else:
-            result = messagebox.askquestion(
-                "هشدار", "آیا رکورد حذف شود؟", icon="warning"
-            )
-            if result == "yes":
-                row = self.table.focus()
-                row_contents = self.table.item(row)
-                book_id = row_contents["values"][0]
-
-                del self.all_books[book_id]
-                self.table.delete(row)
-
-    def buy_book(self):
-
-        row = self.table.focus()
-        row_contents = self.table.item(row)
-        book_id = row_contents["values"][0]
-
-        self.all_books[book_id].sell()
-        self.show_records()
-        self.sale_report.record_sale(self.all_books[book_id])
-        total_books, total_income = self.sale_report.total_sales()
-        self.sell_count_value.config(text=f"{total_books}")
-        self.sell_amount_value.config(text=f"{total_income}")
-
-    def fixture(self):
-        book = Book(title="صد سال تنهایی", author="گارسیا", price=50, count=10)
-        self.all_books[book.id] = book
-        book = Book(title="جنگ و صلح", author="تولستوی", price=100, count=5)
-        self.all_books[book.id] = book
-        book = Book(title="بینوایان", author="هوگو", price=70, count=2)
-        self.all_books[book.id] = book
-
-    def show_records(self):
-        self.table.delete(*self.table.get_children())
-
-        for item in self.all_books.values():
-            self.table.insert(
-                "",
-                "end",
-                values=(
-                    item.id,
-                    item.title,
-                    item.author,
-                    item.price,
-                    item.count,
-                ),
-            )
-
     def __init__(self):
         self.root = tk.Tk()
         self.root.title = "Book Store"
         self.root.geometry("800x400")
         self.all_books = {}
-        self.sale_report = SalesTracker()
+        self.sale_report = Report()
         self.fixture()
 
         # Entry
@@ -229,6 +140,95 @@ class Gui:
         self.table.pack()
         self.show_records()
         self.root.mainloop()
+
+    def add_new(self, title, author, price, count):
+
+        book = Book(title=title, author=author, price=price, count=count)
+        self.all_books[book.id] = book
+        self.show_records()
+        messagebox.showinfo("توجه", "رکورد ذخیره شد")
+        self.title.set("")
+        self.author.set("")
+        self.price.set("")
+        self.count.set("")
+
+    def search_product(self, title, author):
+        self.table.delete(*self.table.get_children())
+        finded_records = []
+        if not title and not author:
+            finded_records = self.all_books.values()
+        else:
+            for item in self.all_books.values():
+                title = title if title else "_"
+                author = author if author else "_"
+                if title in item.title or author in item.author:
+                    finded_records.append(item)
+
+        for item in finded_records:
+            self.table.insert(
+                "",
+                "end",
+                values=(
+                    item.id,
+                    item.title,
+                    item.author,
+                    item.price,
+                    item.count,
+                ),
+            )
+
+    def delete_record(self):
+        if not self.table.selection():
+            messagebox.showwarning("توجه", "رکوردی برای حذف انتخاب نشده است")
+        else:
+            result = messagebox.askquestion(
+                "هشدار", "آیا رکورد حذف شود؟", icon="warning"
+            )
+            if result == "yes":
+                row = self.table.focus()
+                row_contents = self.table.item(row)
+                book_id = row_contents["values"][0]
+
+                del self.all_books[book_id]
+                self.table.delete(row)
+
+    def buy_book(self):
+
+        row = self.table.focus()
+        row_contents = self.table.item(row)
+        book_id = row_contents["values"][0]
+
+        # self.all_books[book_id].sell()
+        self.sale_report.record_sale(self.all_books[book_id])
+        self.show_records()
+        total_books, total_income = self.sale_report.total_sales()
+        self.sell_count_value.config(text=f"{total_books}")
+        self.sell_amount_value.config(text=f"{total_income}")
+
+    def fixture(self):
+        fake_data = [
+            Book(title="صد سال تنهایی", author="گارسیا", price=50, count=10),
+            Book(title="جنگ و صلح", author="تولستوی", price=100, count=5),
+            Book(title="بینوایان", author="هوگو", price=70, count=2),
+        ]
+        for data in fake_data:
+            self.all_books[data.id] = data
+
+    def show_records(self):
+        self.table.delete(*self.table.get_children())
+
+        for item in self.all_books.values():
+            self.table.insert(
+                "",
+                "end",
+                values=(
+                    item.id,
+                    item.title,
+                    item.author,
+                    item.price,
+                    item.count,
+                ),
+            )
 
 
 # def main():
