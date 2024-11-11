@@ -31,16 +31,31 @@ class Book:
 
 class Report:
     def __init__(self):
-        self.all_sales = []
+        self.DATABASE_NAME = "bookstore.db"
 
-    def record_sale(self, book):
-        if book.count >= 1:
-            book.sell()
-            self.all_sales.append((book.title, book.price))
+    def record_sale(self, book_title, book_price, book_count):
+        if book_count > 0:
+
+            with sqlite3.connect(self.DATABASE_NAME) as connection:
+                cursor = connection.cursor()
+                cursor.execute(
+                    "insert into report (title, price) values (?,?)",
+                    (book_title, book_price),
+                )
+                connection.commit()
 
     def total_sales(self):
-        total_books = len(self.all_sales)
-        total_income = sum(sale[1] for sale in self.all_sales)
+
+        with sqlite3.connect(self.DATABASE_NAME) as connection:
+            cursor = connection.cursor()
+            cursor.execute(f"SELECT SUM(price) FROM report")
+            total_income = cursor.fetchone()[0]
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM report",
+            )
+            total_books = cursor.fetchone()[0]
+
         return total_books, total_income
 
 
@@ -53,6 +68,8 @@ class Report:
 class Gui:
 
     def __init__(self):
+        self.DATABASE_NAME = "bookstore.db"
+        self.create_database()
         self.root = tk.Tk()
         self.root.title = "Book Store"
         self.root.geometry("800x400")
@@ -139,12 +156,34 @@ class Gui:
 
         self.table.pack()
         self.show_records()
+        self.show_report()
         self.root.mainloop()
+
+    def show_report(self):
+        total_books, total_income = self.sale_report.total_sales()
+        self.sell_count_value.config(text=f"{total_books}")
+        self.sell_amount_value.config(text=f"{total_income}")
+
+    def create_database(self):
+        with sqlite3.connect(self.DATABASE_NAME) as connection:
+            cursor = connection.cursor()
+            cursor.execute(
+                "create table if not exists book (id integer primary key autoincrement, title text, author text, price integer, count integer)"
+            )
+            cursor.execute(
+                "create table if not exists report (id integer primary key autoincrement, title text, price integer)"
+            )
 
     def add_new(self, title, author, price, count):
 
-        book = Book(title=title, author=author, price=price, count=count)
-        self.all_books[book.id] = book
+        with sqlite3.connect(self.DATABASE_NAME) as connection:
+            cursor = connection.cursor()
+            cursor.execute(
+                "insert into book (title, author, price, count) values (?,?,?,?)",
+                (title, author, price, count),
+            )
+            connection.commit()
+
         self.show_records()
         messagebox.showinfo("توجه", "رکورد ذخیره شد")
         self.title.set("")
@@ -154,28 +193,16 @@ class Gui:
 
     def search_product(self, title, author):
         self.table.delete(*self.table.get_children())
-        finded_records = []
-        if not title and not author:
-            finded_records = self.all_books.values()
-        else:
-            for item in self.all_books.values():
-                title = title if title else "_"
-                author = author if author else "_"
-                if title in item.title or author in item.author:
-                    finded_records.append(item)
-
-        for item in finded_records:
-            self.table.insert(
-                "",
-                "end",
-                values=(
-                    item.id,
-                    item.title,
-                    item.author,
-                    item.price,
-                    item.count,
-                ),
+        title = title if title else "_"
+        author = author if author else "_"
+        with sqlite3.Connection(self.DATABASE_NAME) as connection:
+            cursor = connection.cursor()
+            cursor.execute(
+                f'select * from book where title like "%{title}%" or author like "%{author}%"'
             )
+            finded_records = cursor.fetchall()
+        for item in finded_records:
+            self.table.insert("", "end", values=item)
 
     def delete_record(self):
         if not self.table.selection():
@@ -188,22 +215,35 @@ class Gui:
                 row = self.table.focus()
                 row_contents = self.table.item(row)
                 book_id = row_contents["values"][0]
-
-                del self.all_books[book_id]
                 self.table.delete(row)
+                with sqlite3.connect(self.DATABASE_NAME) as connection:
+                    cursor = connection.cursor()
+                    cursor.execute("DELETE FROM book WHERE id = ?", (book_id,))
+                    connection.commit()
 
     def buy_book(self):
 
         row = self.table.focus()
         row_contents = self.table.item(row)
+        book_title = row_contents["values"][1]
+        book_price = row_contents["values"][3]
+        book_count = row_contents["values"][4]
         book_id = row_contents["values"][0]
+        if book_count > 0:
+            with sqlite3.connect(self.DATABASE_NAME) as connection:
+                cursor = connection.cursor()
+                cursor.execute(
+                    "UPDATE book SET count = count - 1 WHERE id=? ", (book_id,)
+                )
+                connection.commit()
+            self.sale_report.record_sale(book_title, book_price, book_count)
 
-        # self.all_books[book_id].sell()
-        self.sale_report.record_sale(self.all_books[book_id])
         self.show_records()
-        total_books, total_income = self.sale_report.total_sales()
-        self.sell_count_value.config(text=f"{total_books}")
-        self.sell_amount_value.config(text=f"{total_income}")
+        # self.all_books[book_id].sell()
+        # self.sale_report.record_sale(self.all_books[book_id])
+
+        self.show_records()
+        self.show_report()
 
     def fixture(self):
         fake_data = [
@@ -216,19 +256,12 @@ class Gui:
 
     def show_records(self):
         self.table.delete(*self.table.get_children())
-
-        for item in self.all_books.values():
-            self.table.insert(
-                "",
-                "end",
-                values=(
-                    item.id,
-                    item.title,
-                    item.author,
-                    item.price,
-                    item.count,
-                ),
-            )
+        with sqlite3.Connection(self.DATABASE_NAME) as connection:
+            cursor = connection.cursor()
+            cursor.execute("select * from book")
+            all_records = cursor.fetchall()
+            for item in all_records:
+                self.table.insert("", "end", values=item)
 
 
 class LoginGui:
