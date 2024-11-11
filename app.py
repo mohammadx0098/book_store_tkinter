@@ -8,8 +8,6 @@ from tkinter import messagebox
 
 class Book:
     record_number = 0
-    count_books_sold = 0
-    profit = 0
 
     def __init__(self, title, author, price, count):
         self.title = title
@@ -28,8 +26,7 @@ class Book:
             messagebox.showinfo("توجه", "کتاب مورد نظر موجود نمی‌باشد")
             return
         self.count -= 1
-        Book.count_books_sold += 1
-        Book.profit += self.price
+        self.sold += 1
 
 
 class SalesTracker:
